@@ -1,125 +1,91 @@
 <!DOCTYPE html>
 <html lang='en'>
   <head>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/water.css@2/out/water.css">
-    <!-- <link rel='stylesheet' href='https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css'> -->
+    <!-- <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/water.css@2/out/water.css"> -->
+    <link rel='stylesheet' href='https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css'>
+    <!-- <link rel="stylesheet" href="https://unpkg.com/mvp.css"> -->
   </head>
   <body>
-    <article>
-      <h1>Richy Device Config</h1>
-      <div id='connect-blk'>
-        <p>Connect your device via USB and hit <b>Connect</b>!</p>
-    
-        <button id='connect-btn'>Connect</button>
+    <div style='display: flex; gap: 2em; padding: 2em; width: 100%; box-sizing: border-box;'>
+      <div style='flex: 1'>
+        <h1>Richy Device Config</h1>
+        <div id='connect-blk'>
+          <p>Connect your device via USB and hit <b>Connect</b>!</p>
+      
+          <button id='connect-btn'>Connect</button>
+        </div>
+
+        <div id='disconnect-blk' hidden>
+          <p>Be sure to disconnect when you're done!</p>
+      
+          <p><button id='disconnect-btn'>Disconnect</button></p>
+        </div>
+
+        <div id='config-items' hidden>
+          <h2>Smart Clock</h2>
+          <p><button id='clock-format-btn'>Toggle Detail/Large Format</button></p>
+
+          <h2>Wi-Fi Configuration</h2>
+
+          <form id='wifi-config-form'>
+            <div>
+              <label for='hostname'>Hostname:</label>
+              <input type='text' id='hostname' name='hostname' required>
+            </div>        
+            <div>
+              <label for='ssid'>Network Name (SSID):</label>
+              <input type='text' id='ssid' name='ssid' required>
+            </div>
+            <div>
+              <label for='password'>Wi-Fi Password:</label>
+              <input type='text' id='password' name='password'>
+            </div>
+
+            <button type='submit' id='set-wifi-btn'>Save</button>
+          </form>
+        </div>
       </div>
-    </article>
 
-    <article id='config-items' hidden>
-      <form id='wifi-config-form'>
-        <h2>Wi-Fi Configuration</h2>
+      <div style='flex: 1'>
+        <h2>Output from Device</h2>
+        <textarea id='serial-console' rows='20' cols='60' readonly 
+                  placeholder='ESP32 output will appear here...'></textarea>
+      </div>
+    </div>
 
-        <div>
-          <label for='hostname'>Hostname:</label>
-          <input type='text' id='hostname' name='hostname' required>
-        </div>        
-        <div>
-          <label for='ssid'>Network Name (SSID):</label>
-          <input type='text' id='ssid' name='ssid' required>
-        </div>
-        <div>
-          <label for='password'>Wi-Fi Password:</label>
-          <input type='text' id='password' name='password'>
-        </div>
-
-        <button type='submit' id='set-wifi-btn'>Save</button>
-      </form>
-    </article>
-
-    <article>
-      <h2>Output from Device</h2>
-      <textarea id='serial-console' rows='20' cols='80' readonly 
-                placeholder='ESP32 output will appear here...'></textarea>
-    </article>
-
+    <script src='repl.js'></script>
+    
     <script>
-      const soh = '\x01'; // Start of Header - enter raw REPL mode.
-      const stx = '\x02'; // Start of text - exit raw REPL.
-      const etx = '\x03'; // End of text - keyboard interrupt.
-      const eot = '\x04'; // End of transmission.
-
-      var port, writer;
-      const enc = new TextEncoder();
+      function qs(id) {
+        return document.querySelector(id);
+      }
 
       /**
-       * Connect to the device, reset it, copy its output stream to the console element,
-       * and return the writer.
+       * Connect to the device, reset it, and mirror its output stream to the console element.
        */
-      const connectDevice = async () => {
-        try {
-          // Prompts user to select the ESP32 from a browser popup
-          port = await navigator.serial.requestPort();
-          await port.open({ baudRate: 115200 });          
-
-          readDevice(port.readable.getReader());
-
-          // Put the ESP32 into Raw REPL mode and reboot it.
-          writer = port.writable.getWriter();
-          await writer.write(enc.encode(`${etx}`));
-          await new Promise(resolve => setTimeout(resolve, 50)); 
-          await writer.write(enc.encode(`${soh}${eot}`));
-          await writer.write(enc.encode(`
-from rb.core.store import store
-print('Current saved settings:')
-store.dump()
-${eot}`));
-
-          // Show the config items.
-          document.getElementById('config-items').removeAttribute('hidden');
-        } catch (error) {
-          console.error('Connection failed:', error);
+      const connect = async () => {
+        writer = await connectDevice();
+        if (writer) {
+          qs('#config-items').removeAttribute('hidden');
+          qs('#connect-blk').setAttribute('hidden', '');
+          qs('#disconnect-blk').removeAttribute('hidden');
         }
       };
 
-      /**
-       * Read from the device forever.
-       */
-      const readDevice = async (reader) => {
-        const textarea = document.getElementById('serial-console');
-        const decoder = new TextDecoder();
-
-        try {
-          while (true) {
-            const { value, done } = await reader.read();
-            
-            if (done) {
-              textarea.value += '\n--- Connection Closed ---';
-              break;
-            }
-            
-            textarea.value += decoder.decode(value);          
-            textarea.scrollTop = textarea.scrollHeight;
-          }
-        } catch (error) {
-          textarea.value += `\nSerial Error: ${error.message}\n`;
-        }
+      const disconnect = async () => {
+        await disconnectDevice();
+        qs('#disconnect-blk').setAttribute('hidden', '');
+        qs('#config-items').setAttribute('hidden', '');
       }
 
-      /**
-       * Set the wifi credentials on the device using the standard method.
-       */
-      const setWifiCreds = async (hostname, ssid, password) => {
-        await writer.write(enc.encode(`
-from rb.core.wifi import configure_wifi
-configure_wifi('${hostname}', '${ssid}', '${password}')
-print('Wifi configured')
-${eot}`));
-      }
+      qs('#connect-btn').addEventListener('click', connect);
+      qs('#disconnect-btn').addEventListener('click', disconnect);
+      qs('#clock-format-btn').addEventListener('click', toggleBigClock);
 
       document.getElementById('wifi-config-form').addEventListener('submit', async (event) => {
         // Prevent browser from reloading on submit.
         event.preventDefault(); 
-        
-        console.log('Submitting');
+    
         // Extract form data using the standard FormData API
         const fd = new FormData(event.target);
         
@@ -129,11 +95,7 @@ ${eot}`));
           alert(`Error: ${error.message}`);
         }
       });
-
-      if (false) {
-        writer.releaseLock();
-      }
-      document.querySelector('#connect-btn').addEventListener('click', connectDevice);
     </script>
+
   </body>
 </html>
