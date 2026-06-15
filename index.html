@@ -10,51 +10,75 @@
       <div style='flex: 1'>
         <h1>Richy Device Config</h1>
         <div id='connect-blk'>
-          <p>Connect your device via USB and hit <b>Connect</b>!</p>
-      
+          <p>Connect your device via USB and hit <b>Connect</b>, then select the <b>USB JTag...</b> device.</p>
+
           <button id='connect-btn'>Connect</button>
         </div>
 
         <div id='disconnect-blk' hidden>
           <p>Be sure to disconnect when you're done!</p>
-      
+
           <p><button id='disconnect-btn'>Disconnect</button></p>
         </div>
 
         <div id='config-items' hidden>
-          <h2>Smart Clock</h2>
-          <p><button id='clock-format-btn'>Toggle Detail/Large Format</button></p>
-
           <h2>Wi-Fi Configuration</h2>
 
           <form id='wifi-config-form'>
             <div>
               <label for='hostname'>Hostname:</label>
               <input type='text' id='hostname' name='hostname' required>
-            </div>        
+            </div>
             <div>
               <label for='ssid'>Network Name (SSID):</label>
               <input type='text' id='ssid' name='ssid' required>
             </div>
             <div>
-              <label for='password'>Wi-Fi Password:</label>
-              <input type='text' id='password' name='password'>
+              <label for='wifi-password'>Wi-Fi Password:</label>
+              <input type='text' id='wifi-password' name='wifi-password'>
             </div>
 
             <button type='submit' id='set-wifi-btn'>Save</button>
           </form>
+
+          <h2>Home Assistant (MQTT) Configuration</h2>
+
+          <form id='mqtt-config-form'>
+            <div>
+              <label for='mqtt-broker'>Broker (e.g. homeassistant.local):</label>
+              <input type='text' id='mqtt-broker' name='broker' required>
+            </div>
+            <div>
+              <label for='mqtt-username'>Username:</label>
+              <input type='text' id='mqtt-username' name='username' required>
+            </div>
+            <div>
+              <label for='mqtt-password'>Password:</label>
+              <input type='text' id='mqtt-password' name='password' required>
+            </div>
+
+            <button type='submit' id='set-mqtt-btn'>Save</button>
+          </form>
+
+          <h2>Smart Clock</h2>
+          <p>
+            <button id='clock-format-btn'>Toggle Detail/Large Format</button>
+            <button id='clock-bst-btn'>Timezone to <b>BST</b></button>
+            <button id='clock-gmt-btn'>Timezone to <b>GMT</b></button>
+          </p>
+
         </div>
       </div>
 
       <div style='flex: 1'>
         <h2>Output from Device</h2>
-        <textarea id='serial-console' rows='20' cols='60' readonly 
+        <textarea id='serial-console' rows='20' cols='60' readonly
                   placeholder='ESP32 output will appear here...'></textarea>
       </div>
     </div>
 
     <script src='repl.js'></script>
-    
+
     <script>
       function qs(id) {
         return document.querySelector(id);
@@ -81,16 +105,33 @@
       qs('#connect-btn').addEventListener('click', connect);
       qs('#disconnect-btn').addEventListener('click', disconnect);
       qs('#clock-format-btn').addEventListener('click', toggleBigClock);
+      qs('#clock-bst-btn').addEventListener('click', () => setTimezone('BST', 1));
+      qs('#clock-gmt-btn').addEventListener('click', () => setTimezone('GMT', 0));
+
+      /**
+       * Get FormData object from form submit event.
+       */
+      function getFormData(event) {
+        // Prevent browser from reloading on submit.
+        event.preventDefault();
+
+        // Extract form data using the standard FormData API
+        return new FormData(event.target);
+      }
 
       document.getElementById('wifi-config-form').addEventListener('submit', async (event) => {
-        // Prevent browser from reloading on submit.
-        event.preventDefault(); 
-    
-        // Extract form data using the standard FormData API
-        const fd = new FormData(event.target);
-        
-        try {          
+        try {
+          const fd = getFormData(event);
           await setWifiCreds(fd.get('hostname'), fd.get('ssid'), fd.get('password'));
+        } catch (error) {
+          alert(`Error: ${error.message}`);
+        }
+      });
+
+      document.getElementById('mqtt-config-form').addEventListener('submit', async (event) => {
+        try {
+          const fd = getFormData(event);
+          await setMQTTCreds(fd.get('broker'), fd.get('username'), fd.get('password'));
         } catch (error) {
           alert(`Error: ${error.message}`);
         }

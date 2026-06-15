@@ -4,7 +4,7 @@ const stx = '\x02'; // Start of text - exit raw REPL.
 const etx = '\x03'; // End of text - keyboard interrupt.
 const eot = '\x04'; // End of transmission - end of line.
 
-var port, writer;
+var port, reader, writer;
 const enc = new TextEncoder();
 
 /**
@@ -24,7 +24,8 @@ const connectDevice = async () => {
     port = await navigator.serial.requestPort();
     await port.open({ baudRate: 115200 });          
 
-    readDevice(port.readable.getReader());
+    reader = port.readable.getReader()
+    readDevice(reader);
 
     // Put the ESP32 into Raw REPL mode and reboot it.
     writer = port.writable.getWriter();
@@ -51,6 +52,9 @@ store.dump()`);
 const disconnectDevice = async () => {
   await writer.write(enc.encode(`import machine;machine.reset()${eot}`));
   writer.releaseLock();
+  await reader.cancel();
+  reader.releaseLock();
+  await port.close();
 }
 
 
@@ -79,7 +83,7 @@ const readDevice = async (reader) => {
 }
 
 /**
- * Set the wifi credentials on the device using the standard method.
+ * Set the wifi credentials on the device.
  */
 const setWifiCreds = async (hostname, ssid, password) => {
   await python(`
@@ -88,8 +92,25 @@ configure_wifi('${hostname}', '${ssid}', '${password}')
 print('Wifi configured')`);
 }
 
+/**
+ * Set the MQTT credentials on the device.
+ */
+const setMQTTCreds = async (broker, username, password) => {
+  await python(`
+from rb.mqtt.manager import set_mqtt_creds
+set_mqtt_creds('${broker}', '${username}', '${password}')
+print('MQTT configured')`);
+}
+
 const toggleBigClock = async () => {
   await python(`
 from clock import toggle_big_clock
 toggle_big_clock()`);
+}
+
+const setTimezone = async (name, offset) => {
+  await python(`
+from rb.core.tz import set_tz
+set_tz('${name}', ${offset})
+print('Timezone configured to ${name}')`);
 }
