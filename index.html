@@ -61,8 +61,8 @@
           </form>
 
           <h2>Smart Clock</h2>
+          <p><button id='clock-format-btn'>Toggle Detail/Large Format</button></p>
           <p>
-            <button id='clock-format-btn'>Toggle Detail/Large Format</button>
             <button id='clock-bst-btn'>Timezone to <b>BST</b></button>
             <button id='clock-gmt-btn'>Timezone to <b>GMT</b></button>
           </p>
@@ -122,7 +122,7 @@
       document.getElementById('wifi-config-form').addEventListener('submit', async (event) => {
         try {
           const fd = getFormData(event);
-          await setWifiCreds(fd.get('hostname'), fd.get('ssid'), fd.get('password'));
+          await setWifiCreds(fd.get('hostname'), fd.get('ssid'), fd.get('wifi-password'));
         } catch (error) {
           alert(`Error: ${error.message}`);
         }
