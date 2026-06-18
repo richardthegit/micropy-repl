@@ -72,14 +72,14 @@
 
       <div style='flex: 1'>
         <h2>Output from Device</h2>
-        <textarea id='serial-console' rows='20' cols='60' readonly
-                  placeholder='ESP32 output will appear here...'></textarea>
+        <div id='serial-console'></div>
       </div>
     </div>
 
-    <script src='repl.js'></script>
-
-    <script>
+    <script type='module'>
+      import {Repl} from './repl.js';
+      const repl = new Repl();
+    
       function qs(id) {
         return document.querySelector(id);
       }
@@ -88,7 +88,7 @@
        * Connect to the device, reset it, and mirror its output stream to the console element.
        */
       const connect = async () => {
-        writer = await connectDevice();
+        var writer = await repl.connectDevice();
         if (writer) {
           qs('#config-items').removeAttribute('hidden');
           qs('#connect-blk').setAttribute('hidden', '');
@@ -97,16 +97,16 @@
       };
 
       const disconnect = async () => {
-        await disconnectDevice();
+        await repl.disconnectDevice();
         qs('#disconnect-blk').setAttribute('hidden', '');
         qs('#config-items').setAttribute('hidden', '');
       }
 
       qs('#connect-btn').addEventListener('click', connect);
       qs('#disconnect-btn').addEventListener('click', disconnect);
-      qs('#clock-format-btn').addEventListener('click', toggleBigClock);
-      qs('#clock-bst-btn').addEventListener('click', () => setTimezone('BST', 1));
-      qs('#clock-gmt-btn').addEventListener('click', () => setTimezone('GMT', 0));
+      qs('#clock-format-btn').addEventListener('click', repl.toggleBigClock);
+      qs('#clock-bst-btn').addEventListener('click', () => repl.setTimezone('BST', 1));
+      qs('#clock-gmt-btn').addEventListener('click', () => repl.setTimezone('GMT', 0));
 
       /**
        * Get FormData object from form submit event.
@@ -122,7 +122,7 @@
       document.getElementById('wifi-config-form').addEventListener('submit', async (event) => {
         try {
           const fd = getFormData(event);
-          await setWifiCreds(fd.get('hostname'), fd.get('ssid'), fd.get('wifi-password'));
+          await repl.setWifiCreds(fd.get('hostname'), fd.get('ssid'), fd.get('wifi-password'));
         } catch (error) {
           alert(`Error: ${error.message}`);
         }
@@ -131,7 +131,7 @@
       document.getElementById('mqtt-config-form').addEventListener('submit', async (event) => {
         try {
           const fd = getFormData(event);
-          await setMQTTCreds(fd.get('broker'), fd.get('username'), fd.get('password'));
+          await repl.setMQTTCreds(fd.get('broker'), fd.get('username'), fd.get('password'));
         } catch (error) {
           alert(`Error: ${error.message}`);
         }
